@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.reverse import reverse
 from apis.models import OpenId, User, Company, UserinCompany, Job, Client
 from apis.serializers import UserSerializer, CompanySerializer, JobSerializer, ClientSerializer
 import json
@@ -35,11 +36,38 @@ def pagination(size, request, objs, seria):
     serializer = seria(objs[offset:offset + size], many=True)
     return (serializer, next)
 
+@api_view(['GET'])
+def api_root(request, format=None):
+    """
+    Return the API list
+    """
+    apis = {
+        'wxlogin': reverse('wxlogin', request=request, format=format),
+        'user': reverse('user_create_or_update', request=request, format=format),
+        'user-detail': reverse('user_detail', args=['1'], request=request, format=format),
+        'user-list': reverse('user_list', request=request, format=format),
+        'company': reverse('company_create_or_update', request=request, format=format),
+        'yourcompany': reverse('get_your_company_info', args=['1'], request=request, format=format),
+        'company-list': reverse('company_list', request=request, format=format),
+        'job': reverse('job_create', request=request, format=format),
+        'job-list': reverse('job_list', request=request, format=format),
+        'your-company-jobs': reverse('get_your_company_jobs', args=['1'], request=request, format=format),
+        'toggle-job-status': reverse('toggle_job_status', args=['1'], request=request, format=format),
+        'client': reverse('client_create', request=request, format=format),
+        'your-clients': reverse('get_your_company_clients', args=['1'], request=request, format=format),
+        'toggle-client-status': reverse('toggle_client_status', args=['1'], request=request, format=format),
+        'add-user-to-company': reverse('add_user_to_company', request=request, format=format),
+    }
+    return Response(apis)
 
 @api_view(['POST'])
 def wxlogin(request, format = None):
     """
     Interface to get weixin openid
+    POST Body:
+    {
+        code: string
+    }
     """
     rq = request.data
     logger.info(rq)
@@ -57,9 +85,23 @@ def wxlogin(request, format = None):
 
 
 @api_view(['POST'])
-def user_update(request, format = None):
+def user_create_or_update(request, format = None):
     """
     Create/update a user's detail info into database
+    POST Body:
+    {
+        openid: string
+        avatar: string
+        city: string
+        country: string
+        gender: int
+        nickname: string
+        province: string
+        name: string
+        phone: string
+        birthday: string
+        intro: string
+    }
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -91,6 +133,7 @@ def user_update(request, format = None):
 def user_detail(request, openid, format = None):
     """
     Get a user's detail info from database
+    Path Param: openid
     """
     u = User.objects.filter(openid=openid).first()
     if not u:
@@ -111,9 +154,18 @@ def user_list(request, format = None):
 
 
 @api_view(['POST'])
-def company_register(request, format = None):
+def company_create_or_update(request, format = None):
     """
     Register or update a company infomation
+    POST Body:
+    {
+        company_id: int [optional]
+        name: string
+        phone: string
+        address: string
+        intro: string
+        openid: string
+    }
     """
     rq = request.data
     if 'company_id' not in rq:
@@ -139,6 +191,7 @@ def company_register(request, format = None):
 def get_your_company_info(request, openid, format = None):
     """
     Get user's company info
+    Path Param: openid
     """
     rl = UserinCompany.objects.filter(openid=openid).first()
     if not rl:
@@ -162,9 +215,21 @@ def company_list(request, format = None):
 
 
 @api_view(['POST'])
-def job_add(request, format = None):
+def job_create(request, format = None):
     """
     Add new job
+    POST Body:
+    {
+        name: string
+        low: int
+        high: int
+        city: string
+        district: string
+        title: string
+        phone: string
+        intro: string
+        company_id: int
+    }
     """
     rq = request.data
     j = Job(name=rq['name'], low=rq['low'], high=rq['high'], city=rq['city'], district=rq['district'], title=rq['title'], phone=rq['phone'], intro=rq['intro'], update_at=timezone.now(), register_by=rq['company_id'])
@@ -185,9 +250,10 @@ def job_list(request, format = None):
 
 
 @api_view(['GET'])
-def job_list_by_company(request, company_id, format = None):
+def get_your_company_jobs(request, company_id, format = None):
     """
     List all jobs filed by your company
+    Path Param: company_id
     """
     j = Job.objects.filter(register_by=company_id, status=1).order_by('-update_at')
     serializer = JobSerializer(j, many=True)
@@ -195,9 +261,10 @@ def job_list_by_company(request, company_id, format = None):
 
 
 @api_view(['POST'])
-def job_status_switch(request, job_id, format = None):
+def toggle_job_status(request, job_id, format = None):
     """
     Toggle job status hidden or show
+    Path Param: job_id
     """
     try:
         j = Job.objects.get(id=job_id)
@@ -210,9 +277,14 @@ def job_status_switch(request, job_id, format = None):
 
 
 @api_view(['POST'])
-def client_add(request, format = None):
+def client_create(request, format = None):
     """
     Add client
+    POST Body:
+    {
+        name: string
+        company_id: int
+    }
     """
     rq = request.data
     client = Client(name=rq['name'], register_by=rq['company_id'], update_at=timezone.now())
@@ -223,9 +295,10 @@ def client_add(request, format = None):
 
 
 @api_view(['GET'])
-def client_get_by_company(request, company_id, format = None):
+def get_your_company_clients(request, company_id, format = None):
     """
     Get clients belongs to company
+    Path Param: company_id
     """
     clients = Client.objects.filter(register_by=company_id, status=1)
     serializer = ClientSerializer(clients, many=True)
@@ -233,9 +306,14 @@ def client_get_by_company(request, company_id, format = None):
 
 
 @api_view(['POST'])
-def client_status_switch(request, client_id, format = None):
+def toggle_client_status(request, client_id, format = None):
     """
     Toggle client status hidden or show
+    Path Param: client_id
+    POST Body:
+    {
+        status: 0/1
+    }
     """
     try:
         c = Client.objects.get(id=client_id)
@@ -252,13 +330,21 @@ def client_status_switch(request, client_id, format = None):
 @api_view(['POST'])
 def add_user_to_company(request, format = None):
     """
-    User is added as employee
+    User join a company as employee and set user role | 0x2
+    POST Body:
+    {
+        company_id: int
+        openid: string
+    }
     """
     rq = request.data
     cid = rq['company_id']
     defaults = {'companyid': cid}
     obj, _ = UserinCompany.objects.update_or_create(openid=rq['openid'], defaults=defaults)
+    #set user role
+    u = User.objects.filter(openid=rq['openid']).first()
+    if u:
+        u.role = u.role | 0x2
+        u.save()
     return Response(status=status.HTTP_200_OK)
-+++ okay decompyling /home/ubuntu/views.pyc 
-# decompiled 1 files: 1 okay, 0 failed, 0 verify failed
-# 2017.11.08 16:07:18 CST
+
