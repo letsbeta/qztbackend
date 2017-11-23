@@ -6,6 +6,9 @@ from apis import views
 urlpatterns = [
     url(r'docs$', views.api_root, name='api_root'),
 
+    url(r'iplookup$', views.api_iplookup, name='iplookup'),
+    url(r'location$', views.api_location, name='location'),
+
     url(r'wxlogin$', views.wxlogin, name='wxlogin'),
 
     # user operations

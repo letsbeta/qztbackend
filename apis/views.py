@@ -36,6 +36,27 @@ def pagination(size, request, objs, seria):
     serializer = seria(objs[offset:offset + size], many=True)
     return (serializer, next)
 
+
+@api_view(['GET'])
+def api_iplookup(request, format=None):
+    print request.META
+    client_ip = request.META['HTTP_X_REAL_IP']
+    payload = {'ip': client_ip}
+    r = requests.get('http://ip.taobao.com/service/getIpInfo.php', params = payload)
+    return Response(r.json())
+
+@api_view(['GET'])
+def api_location(request, format=None):
+    url = 'http://api.map.baidu.com/geocoder/v2/'
+    rq = request.query_params
+    payload = {'location': '%s,%s' % (rq['latitude'], rq['longitude']),
+               'output': 'json', 'ak': 'HYPhveknuPWKu7p3scGsZTL7'}
+    r = requests.get(url, params = payload)
+    js = r.json()
+    js['redirect'] = True
+    return Response(js)
+
+
 @api_view(['GET'])
 def api_root(request, format=None):
     """
